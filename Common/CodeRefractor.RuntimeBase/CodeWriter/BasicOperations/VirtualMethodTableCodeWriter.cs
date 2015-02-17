@@ -15,6 +15,7 @@ using CodeRefractor.MiddleEnd.SimpleOperations.Identifiers;
 using CodeRefractor.RuntimeBase;
 using CodeRefractor.RuntimeBase.TypeInfoWriter;
 using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
@@ -22,7 +23,15 @@ namespace CodeRefractor.CodeWriter.BasicOperations
 {
     public class VirtualMethodTableCodeWriter
     {
-        public static string GenerateTypeTableCode(TypeDescriptionTable table, ClosureEntities crRuntime)
+        private readonly LinkerUtils _linkerUtils;
+
+        [Inject]
+        public VirtualMethodTableCodeWriter(LinkerUtils linkerUtils)
+        {
+            _linkerUtils = linkerUtils;
+        }
+
+        public string GenerateTypeTableCode(TypeDescriptionTable table, ClosureEntities crRuntime)
         {
             var sb = new StringBuilder();
             sb.AppendLine("// --- Begin definition of virtual implementingMethod tables ---");
@@ -33,8 +42,6 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             var vcalls = crRuntime.AbstractMethods;
 
             WriteForwardVcalls(crRuntime, vcalls, sb);
-
-
 
             foreach (var virtualMethod in vcalls)
             {
@@ -135,7 +142,7 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             return sb.ToString();
         }
 
-        private static void WriteForwardVcalls(ClosureEntities crRuntime, HashSet<MethodInfo> vcalls, StringBuilder sb)
+        private void WriteForwardVcalls(ClosureEntities crRuntime, HashSet<MethodInfo> vcalls, StringBuilder sb)
         {
             foreach (var virtualMethod in vcalls)
             {
@@ -151,7 +158,7 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             }
         }
 
-        private static string GetParametersString(MethodInfo virtualMethod,
+        private string GetParametersString(MethodInfo virtualMethod,
             ClosureEntities crRuntime)
         {
             var sb = new StringBuilder();
@@ -176,11 +183,17 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             return sb.ToString();
         }
 
-        private static string GetCall(MethodInfo virtualMethod, MethodInfo implementingMethod, ClosureEntities crRuntime)
+        private string GetCall(MethodInfo virtualMethod, MethodInfo implementingMethod, ClosureEntities crRuntime)
         {
-             //Add Rest of parameters
+            //Add Rest of parameters
             var parameters = virtualMethod.GetParameters();
-            var usedArgs = implementingMethod.GetInterpreter(crRuntime)!=null ? MidRepresentationUtils.GetUsedArguments(implementingMethod.GetInterpreter(crRuntime)) : Enumerable.Repeat(true, parameters.Count() + 1).ToArray();  // Sometime we dont have a implementingMethod interpreter ... why ?
+            var methodInterpreter = _linkerUtils.GetInterpreter(implementingMethod, crRuntime);
+
+            // Sometime we dont have a implementingMethod interpreter ... why ?
+            var usedArgs = methodInterpreter != null ? 
+                        MidRepresentationUtils.GetUsedArguments(methodInterpreter) : 
+                        Enumerable.Repeat(true, parameters.Count() + 1).ToArray(); 
+            
             int pCount = 0;
             var parametersString = usedArgs[0] ?GetCorrectParameter(virtualMethod,implementingMethod, crRuntime,0):"";
            
@@ -211,7 +224,7 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             return sb.ToString();
         }
 
-        private static string GetCorrectParameter(MethodInfo virtualMethod, MethodInfo implementingMethod, ClosureEntities crRuntime, int parameter)
+        private string GetCorrectParameter(MethodInfo virtualMethod, MethodInfo implementingMethod, ClosureEntities crRuntime, int parameter)
         {
             if (parameter == 0) //TODO: Add Unboxing Feature if Value types are found
             {

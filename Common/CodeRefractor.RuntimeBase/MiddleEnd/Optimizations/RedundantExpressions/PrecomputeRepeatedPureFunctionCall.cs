@@ -19,7 +19,15 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
 	[Optimization(Category = OptimizationCategories.CommonSubexpressionsElimination)]
     internal class PrecomputeRepeatedPureFunctionCall : BlockOptimizationPass
     {
-        public override bool OptimizeBlock(CilMethodInterpreter midRepresentation, int startRange, int endRange,
+	    private readonly EvaluatePureFunctionWithConstantCall _evaluatePureFunctionWithConstantCall;
+
+	    public PrecomputeRepeatedPureFunctionCall(
+	        EvaluatePureFunctionWithConstantCall evaluatePureFunctionWithConstantCall)
+	    {
+	        _evaluatePureFunctionWithConstantCall = evaluatePureFunctionWithConstantCall;
+	    }
+
+	    public override bool OptimizeBlock(CilMethodInterpreter midRepresentation, int startRange, int endRange,
             LocalOperation[] operations)
         {
             var localOperations = midRepresentation.MidRepresentation.LocalOperations;
@@ -43,7 +51,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
             return false;
         }
 
-        private static void ApplyOptimization(CilMethodInterpreter midRepresentation, int i, int j)
+        private void ApplyOptimization(CilMethodInterpreter midRepresentation, int i, int j)
         {
             var localOps = midRepresentation.MidRepresentation.LocalOperations;
 
@@ -64,7 +72,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
             localOps.Insert(j + 1, destAssignment);
         }
 
-        public static List<int> FindCallsToPureFunctions(UseDefDescription useDef, int startRange, int endRange)
+        public List<int> FindCallsToPureFunctions(UseDefDescription useDef, int startRange, int endRange)
         {
             var calls = new List<int>();
             var opArr = useDef.GetLocalOperations();
@@ -74,7 +82,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
             {
                 if(index < startRange || index > endRange)continue;
                 var operation = opArr[index];
-                var operationData = EvaluatePureFunctionWithConstantCall.ComputeAndEvaluatePurityOfCall(operation);
+                var operationData = _evaluatePureFunctionWithConstantCall.ComputeAndEvaluatePurityOfCall(operation);
                 if (!operationData.Interpreter.AnalyzeProperties.IsPure || !operationData.Info.IsStatic)
                     continue;
                 calls.Add(index);
@@ -82,7 +90,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
             return calls;
         }
 
-        private static bool TryMergeCalls(int i, int i1, CallMethodStatic firstCallMethodStatic, CallMethodStatic secondCallMethodStatic,
+        private bool TryMergeCalls(int i, int i1, CallMethodStatic firstCallMethodStatic, CallMethodStatic secondCallMethodStatic,
             List<LocalOperation> localOperations)
         {
             var validateParametersAreTheSame = ValidateParametersAreTheSame(firstCallMethodStatic, secondCallMethodStatic);
@@ -114,7 +122,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.RedundantExpressions
             return true;
         }
 
-        private static bool ValidateParametersAreTheSame(CallMethodStatic firstCallMethodStatic, CallMethodStatic secondCallMethodStatic)
+        private bool ValidateParametersAreTheSame(CallMethodStatic firstCallMethodStatic, CallMethodStatic secondCallMethodStatic)
         {
             var parametersFirst = new List<IdentifierValue>();
             foreach (var identifierValue in firstCallMethodStatic.Parameters)

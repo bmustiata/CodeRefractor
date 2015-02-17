@@ -86,8 +86,13 @@
     <Compile Include="ClosureCompute\Steps\AddVirtualMethods.cs" />
     <Compile Include="CodeWriter\BasicOperations\CppCastRelatedOperations.cs" />
     <Compile Include="CodeWriter\Linker\GenerateTypeTableForIsInst.cs" />
+    <Compile Include="CodeWriter\Output\ApplicationConfiguration.cs" />
     <Compile Include="CodeWriter\Output\CodeOutput.cs" />
+    <Compile Include="CodeWriter\Output\CodeOutputConfiguration.cs" />
+    <Compile Include="CodeWriter\Output\ConfigurationSection.cs" />
+    <Compile Include="CodeWriter\Output\ExistingConfigurationSection.cs" />
     <Compile Include="CodeWriter\Output\IndentCode.cs" />
+    <Compile Include="CodeWriter\Output\MissingConfigurationSection.cs" />
     <Compile Include="CodeWriter\Types\CallMarshallerFactory.cs" />
     <Compile Include="CodeWriter\Types\CallParameterMarshaller.cs" />
     <Compile Include="CodeWriter\Types\CallParameterStringMarshaller.cs" />
@@ -135,7 +140,6 @@
     <Compile Include="Analyze\UsedTypeListUtils.cs" />
     <Compile Include="Backend\ComputeClosure\MethodInterpreterCodeWriter.cs" />
     <Compile Include="Backend\CppCodeGenerator.cs" />
-    <Compile Include="Backend\Linker\LinkerInterpretersTableUtils.cs" />
     <Compile Include="Backend\ProgramWideOptimizations\ConstParameters\CallToFunctionsWithSameConstant.cs" />
     <Compile Include="Backend\ProgramWideOptimizations\ConstParameters\ConstantParametersData.cs" />
     <Compile Include="Backend\ProgramWideOptimizations\ProgramOptimizationBase.cs" />
@@ -182,6 +186,7 @@
     <Compile Include="TypeInfoWriter\VirtualMethodDescription.cs" />
     <Compile Include="Util\EnumerationUtils.cs" />
     <Compile Include="Util\OnceMany.cs" />
+    <Compile Include="Util\Provider.cs" />
     <Compile Include="Util\TypeNamerUtils.cs" />
     <Compile Include="Config\CodeRefractorVersions.cs" />
     <Compile Include="Config\CommandLineParse.cs" />
@@ -307,5 +312,7 @@
       <Name>Mono.Reflection</Name>
     </ProjectReference>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="Backend\Linker\" />
+  </ItemGroup>
 </Project>

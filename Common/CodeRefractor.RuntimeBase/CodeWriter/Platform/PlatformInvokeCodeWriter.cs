@@ -15,14 +15,27 @@ using CodeRefractor.MiddleEnd.Interpreters;
 using CodeRefractor.RuntimeBase;
 using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.CodeWriter.Platform
 {
-    public static class PlatformInvokeCodeWriter
+    // singleton
+    /**
+     * This class outputs the code that for a PInvoke call.
+     */
+    public class PlatformInvokeCodeWriter
     {
-        private static string Import(string dll, string method, CallingConvention? callingConvention, string entryPoint)
+        private Provider<CodeOutput> _codeOutputProvider;
+
+        [Inject]
+        public PlatformInvokeCodeWriter(Provider<CodeOutput> codeOutputProvider)
+        {
+            this._codeOutputProvider = codeOutputProvider;
+        }
+
+        private string Import(string dll, string method, CallingConvention? callingConvention, string entryPoint)
         {
             LinkingData.LibraryMethodCount++;
             var id = LinkingData.LibraryMethodCount;
@@ -43,9 +56,9 @@ namespace CodeRefractor.CodeWriter.Platform
             return dllId.FormattedName();
         }
 
-        public static string LoadDllMethods()
+        public string LoadDllMethods()
         {
-            var sb = new CodeOutput();
+            var sb = _codeOutputProvider.Value;
 
             sb.BlankLine()
                 .Append("System_Void mapLibs()")
@@ -72,7 +85,7 @@ namespace CodeRefractor.CodeWriter.Platform
                 .ToString();
         }
 
-        private static string WritePInvokeDefinition(this MethodInterpreter methodBase, string methodDll)
+        private string WritePInvokeDefinition(MethodInterpreter methodBase, string methodDll)
         {
             var platformInterpreter = (PlatformInvokeMethod)methodBase;
             var retType = platformInterpreter.Method.GetReturnType().ToCppMangling();
@@ -103,23 +116,23 @@ namespace CodeRefractor.CodeWriter.Platform
         }
 
 
-        public static string WriteDelegateCallCode(this MethodInterpreter delegateInvoke)
+        public string WriteDelegateCallCode(MethodInterpreter delegateInvoke)
         {
             var sb = new StringBuilder();
 
             return sb.ToString();
         }
 
-        public static string WritePlatformInvokeMethod(this PlatformInvokeMethod platformInvoke, ClosureEntities crRuntime)
+        public string WritePlatformInvokeMethod(PlatformInvokeMethod platformInvoke, ClosureEntities crRuntime)
         {
             var methodId = Import(platformInvoke.LibraryName,
                 platformInvoke.MethodName,
                 platformInvoke.CallingConvention,
                 platformInvoke.EntryPoint);
 
-            CodeOutput codeOutput = new CodeOutput();
+            CodeOutput codeOutput = _codeOutputProvider.Value;
 
-            codeOutput.AppendFormat(platformInvoke.WritePInvokeDefinition(methodId));
+            codeOutput.AppendFormat(this.WritePInvokeDefinition(platformInvoke, methodId));
             codeOutput.BlankLine();
             codeOutput.Append(platformInvoke.Method.WriteHeaderMethod(crRuntime, writeEndColon: false));
 

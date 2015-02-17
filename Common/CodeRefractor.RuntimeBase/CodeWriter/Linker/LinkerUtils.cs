@@ -8,20 +8,33 @@ using CodeRefractor.FrontEnd.SimpleOperations.Identifiers;
 using CodeRefractor.MiddleEnd;
 using CodeRefractor.MiddleEnd.Interpreters;
 using CodeRefractor.MiddleEnd.Interpreters.Cil;
+using CodeRefractor.MiddleEnd.Optimizations.Purity;
 using CodeRefractor.MiddleEnd.SimpleOperations.Identifiers;
 using CodeRefractor.MiddleEnd.SimpleOperations.Methods;
 using CodeRefractor.Runtime;
 using CodeRefractor.RuntimeBase;
 using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.MiddleEnd;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.CodeWriter.Linker
 {
-    public static class LinkerUtils
+    public class LinkerUtils
     {
-        public static string ComputedValue(this IdentifierValue identifierValue)
+        private readonly LinkingData _linkingData;
+        private readonly AnalyzeFunctionPurity _analyzeFunctionPurity;
+
+        [Inject]
+        public LinkerUtils(LinkingData linkingData,
+            AnalyzeFunctionPurity analyzeFunctionPurity)
+        {
+            _linkingData = linkingData;
+            _analyzeFunctionPurity = analyzeFunctionPurity;
+        }
+
+        public string ComputedValue(IdentifierValue identifierValue)
         {
             var constValue = identifierValue as ConstValue;
             if (constValue == null)
@@ -32,7 +45,7 @@ namespace CodeRefractor.CodeWriter.Linker
             if (computeType.ClrTypeCode == TypeCode.String)
             {
                 
-                var stringTable = LinkingData.Instance.Strings;
+                var stringTable = _linkingData.Strings;
                 var stringId = stringTable.GetStringId((string) constValue.Value);
                     
                 return String.Format("_str({0})", stringId);
@@ -40,21 +53,21 @@ namespace CodeRefractor.CodeWriter.Linker
             return constValue.Name;
         }
 
-        public static MethodInterpreter GetInterpreter(this CallMethodStatic callMethodStatic, ClosureEntities crRuntime)
+        public MethodInterpreter GetInterpreter(CallMethodStatic callMethodStatic, ClosureEntities crRuntime)
         {
             return crRuntime.ResolveMethod(callMethodStatic.Info);
         }
 
-        public static MethodInterpreter GetInterpreter(this MethodBase methodBase, ClosureEntities crRuntime)
+        public MethodInterpreter GetInterpreter(MethodBase methodBase, ClosureEntities crRuntime)
         {
             return crRuntime.ResolveMethod(methodBase);
         }
 
         public const string EscapeName = "NonEscapingArgs";
 
-        public static Dictionary<int, bool> EscapingParameterData(this MethodBase info, ClosureEntities crRuntime)
+        public Dictionary<int, bool> EscapingParameterData(MethodBase info, ClosureEntities crRuntime)
         {
-            var interpreter = info.GetInterpreter(crRuntime) as CilMethodInterpreter;
+            var interpreter = this.GetInterpreter(info, crRuntime) as CilMethodInterpreter;
             if (interpreter == null)
                 return null;
             var calledMethod = interpreter.MidRepresentation;
@@ -66,7 +79,7 @@ namespace CodeRefractor.CodeWriter.Linker
             return otherMethodData;
         }
 
-        public static EscapingMode[] BuildEscapeModes(this MethodInterpreter interpreter)
+        public EscapingMode[] BuildEscapeModes(MethodInterpreter interpreter)
         {
             var parameters = new List<EscapingMode>();
             var analyzeProperties = interpreter.AnalyzeProperties;
@@ -80,12 +93,12 @@ namespace CodeRefractor.CodeWriter.Linker
             return parameters.ToArray();
         }
 
-        public static bool[] BuildEscapingBools(this MethodBase method, ClosureEntities crRuntime)
+        public bool[] BuildEscapingBools(MethodBase method, ClosureEntities crRuntime)
         {
             var parameters = method.GetParameters();
             var escapingBools = new bool[parameters.Length + 1];
 
-            var escapeData = method.EscapingParameterData(crRuntime);
+            var escapeData = this.EscapingParameterData(method, crRuntime);
             if (escapeData != null)
             {
                 foreach (var escaping in escapeData)
@@ -103,5 +116,23 @@ namespace CodeRefractor.CodeWriter.Linker
             }
             return escapingBools;
         }
+
+        public bool ReadPurity(MethodBase methodBase, ClosureEntities crRuntime)
+        {
+            var method = this.GetInterpreter(methodBase, crRuntime);
+            return _analyzeFunctionPurity.ReadPurity(method as CilMethodInterpreter);
+        }
+
+
+        public bool ReadNoStaticSideEffects(MethodBase methodBase, ClosureEntities crRuntime)
+        {
+            var method = this.GetInterpreter(methodBase, crRuntime) as CilMethodInterpreter;
+            if (method != null && method.MidRepresentation != null)
+            {
+                return method.AnalyzeProperties.IsReadOnly;
+            }
+            return false;
+        }
+
     }
 }

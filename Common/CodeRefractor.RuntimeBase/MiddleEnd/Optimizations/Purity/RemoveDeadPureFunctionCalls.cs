@@ -9,6 +9,7 @@ using CodeRefractor.MiddleEnd.SimpleOperations.Methods;
 using CodeRefractor.MiddleEnd.UseDefs;
 using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.Optimizations;
+using Ninject;
 
 #endregion
 
@@ -17,7 +18,15 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 	[Optimization(Category = OptimizationCategories.Purity)]
     public class RemoveDeadPureFunctionCalls : ResultingInFunctionOptimizationPass
     {
-        public override void OptimizeOperations(CilMethodInterpreter methodInterpreter)
+	    private readonly LinkerUtils _linkerUtils;
+
+	    [Inject]
+	    public RemoveDeadPureFunctionCalls(LinkerUtils linkerUtils)
+	    {
+	        _linkerUtils = linkerUtils;
+	    }
+
+	    public override void OptimizeOperations(CilMethodInterpreter methodInterpreter)
         {
             var useDef = methodInterpreter.MidRepresentation.UseDef;
             var localOperations = useDef.GetLocalOperations();
@@ -28,7 +37,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
             {
                 var operation = localOperations[index];
                 var methodData = operation.Get<CallMethodStatic>();
-                var interpreter = methodData.GetInterpreter(Closure);
+                var interpreter = _linkerUtils.GetInterpreter(methodData, Closure);
                 if (interpreter == null)
                     continue;
                 if (methodData.Result != null)

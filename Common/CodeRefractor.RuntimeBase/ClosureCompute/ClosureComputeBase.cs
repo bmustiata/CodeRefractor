@@ -16,10 +16,13 @@ namespace CodeRefractor.ClosureCompute
     {
         public abstract bool UpdateClosure(ClosureEntities closureEntities);
 
-
-        protected static void AddMethodToClosure(ClosureEntities closureEntities, MethodBase method)
+        // TODO: move this utility method into a different class.
+        protected static void AddMethodToClosure(
+            CilMethodInterpreterProvider cilMethodInterpreterProvider, 
+            ClosureEntities closureEntities, 
+            MethodBase method)
         {
-            var interpreter = closureEntities.ResolveMethod(method) ?? new CilMethodInterpreter(method);
+            var interpreter = closureEntities.ResolveMethod(method) ?? cilMethodInterpreterProvider.Get(method);
             var intepreter = interpreter as CilMethodInterpreter;
             if (intepreter != null)
             {

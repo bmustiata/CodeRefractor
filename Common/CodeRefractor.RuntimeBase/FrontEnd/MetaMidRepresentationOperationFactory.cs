@@ -23,19 +23,79 @@ using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.MiddleEnd.SimpleOperations;
 using CodeRefractor.RuntimeBase.MiddleEnd.SimpleOperations.Operators;
 using CodeRefractor.RuntimeBase.Shared;
+using CodeRefractor.Util;
 using Mono.Reflection;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.FrontEnd
 {
+    /**
+     * Factory for the MetaMidRepresentationOperationFactory
+     */
+
+    public class MetaMidRepresentationOperationFactoryProvider
+    {
+        private readonly ReturnProvider _returnProvider;
+        private Provider<ConstByteArrayList> _constByteArrayListProvider;
+        private readonly Provider<GlobalMethodPool> _globalMethodPoolProvider;
+        private readonly CilMethodInterpreterProvider _cilMethodInterpreterProvider;
+
+        [Inject]
+        private MetaMidRepresentationOperationFactoryProvider(
+            ReturnProvider returnProvider,
+            Provider<ConstByteArrayList> constByteArrayListProvider,
+            Provider<GlobalMethodPool> globalMethodPoolProvider,
+            CilMethodInterpreterProvider cilMethodInterpreterProvider)
+        {
+            _returnProvider = returnProvider;
+            _constByteArrayListProvider = constByteArrayListProvider;
+            _globalMethodPoolProvider = globalMethodPoolProvider;
+            _cilMethodInterpreterProvider = cilMethodInterpreterProvider;
+        }
+
+        public MetaMidRepresentationOperationFactory Get(MetaMidRepresentation representation, 
+            EvaluatorStack evaluator)
+        {
+            return new MetaMidRepresentationOperationFactory(
+                representation, 
+                evaluator, 
+                _returnProvider,
+                _constByteArrayListProvider,
+                _globalMethodPoolProvider,
+                _cilMethodInterpreterProvider);
+        }
+    }
+
     public class MetaMidRepresentationOperationFactory
     {
         private readonly MetaMidRepresentation _representation;
         private readonly EvaluatorStack _evaluator;
+        private readonly ReturnProvider _returnProvider;
+        private readonly Provider<ConstByteArrayList> _constByteArrayListProvider;
+        private readonly Provider<GlobalMethodPool> _globalMethodPoolProvider;
+        private readonly CilMethodInterpreterProvider _cilMethodInterpreterProvider;
 
         private int _leaveOffset = -1;
         public Type ConstrainedClass { get; set; }
+
+
+        internal MetaMidRepresentationOperationFactory(
+            MetaMidRepresentation representation,
+            EvaluatorStack evaluator,
+            ReturnProvider returnProvider,
+            Provider<ConstByteArrayList> constByteArrayListProvider,
+            Provider<GlobalMethodPool> globalMethodPoolProvider,
+            CilMethodInterpreterProvider cilMethodInterpreterProvider) 
+        {
+            _representation = representation;
+            _evaluator = evaluator;
+            _returnProvider = returnProvider;
+            _constByteArrayListProvider = constByteArrayListProvider;
+            _globalMethodPoolProvider = globalMethodPoolProvider;
+            _cilMethodInterpreterProvider = cilMethodInterpreterProvider;
+        }
 
         /**
          * @NotUsed
@@ -64,13 +124,6 @@ namespace CodeRefractor.FrontEnd
             _leaveOffset = -1;
             return false;
         }
-
-        public MetaMidRepresentationOperationFactory(MetaMidRepresentation representation, EvaluatorStack evaluator)
-        {
-            _representation = representation;
-            _evaluator = evaluator;
-        }
-
 
         private void AddOperation(LocalOperation value = null)
         {
@@ -234,10 +287,8 @@ namespace CodeRefractor.FrontEnd
         public void Return(bool isVoid)
         {
             var returnValue = isVoid ? null : _evaluator.Pop();
-            AddOperation(new Return
-            {
-                Returning = returnValue
-            });
+
+            AddOperation(_returnProvider.Get(returnValue));
         }
 
 
@@ -432,7 +483,7 @@ namespace CodeRefractor.FrontEnd
                 return;
 
             }
-            interpreter = new CilMethodInterpreter(methodInfo);
+            interpreter = _cilMethodInterpreterProvider.Get(methodInfo);
             var methodData = new CallMethodStatic(interpreter);
             CallMethodData(methodInfo, methodData);
         }
@@ -441,7 +492,7 @@ namespace CodeRefractor.FrontEnd
         {
             var methodInfo = operand;
 
-            var interpreter = new CilMethodInterpreter(methodInfo);
+            var interpreter = _cilMethodInterpreterProvider.Get(methodInfo);
 
             var methodData = new CallMethodVirtual(interpreter);
 
@@ -747,8 +798,8 @@ namespace CodeRefractor.FrontEnd
         {
             if (constructorInfo.DeclaringType == typeof (object))
                 return;
-            
-            constructorInfo.Register();
+
+            _globalMethodPoolProvider.Value.Register(constructorInfo);
             var result = SetNewVReg();
             result.FixedType = new TypeDescription(constructorInfo.DeclaringType);
             var constructedObject = new NewConstructedObject
@@ -758,7 +809,7 @@ namespace CodeRefractor.FrontEnd
             };
             AddOperation(constructedObject);
 
-            var interpreter = new CilMethodInterpreter(constructedObject.Info);
+            var interpreter = _cilMethodInterpreterProvider.Get(constructedObject.Info);
             var methodData = new CallMethodStatic(interpreter);
             CallMethodData(constructedObject.Info, methodData);
             var vreg = SetNewVReg();
@@ -814,7 +865,7 @@ namespace CodeRefractor.FrontEnd
             var value = fields[0].GetValue(null);
             var srcBytes = value.ToByteArray();
             var vreg = SetNewVReg();
-            var rightConstant = ConstByteArrayList.RegisterConstant(srcBytes);
+            var rightConstant = _constByteArrayListProvider.Value.RegisterConstant(srcBytes);
             var assign = new Assignment
             {
                 AssignedTo = vreg,

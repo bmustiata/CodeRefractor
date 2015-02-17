@@ -15,13 +15,13 @@ namespace CodeRefractor.Compiler
     public class Program
     {
         private readonly CommandLineParse _commandLineParse;
-        private readonly Func<ClosureEntitiesUtils> _getClosureEntitiesUtils;
+        private readonly Provider<ClosureEntitiesUtils> _closureEntitiesUtils;
 
         public Program(CommandLineParse commandLineParse,
-                       Func<ClosureEntitiesUtils>  getClosureEntitiesUtils)
+                       Provider<ClosureEntitiesUtils> closureEntitiesUtils)
         {
             this._commandLineParse = commandLineParse;
-            this._getClosureEntitiesUtils = getClosureEntitiesUtils;
+            this._closureEntitiesUtils = closureEntitiesUtils;
         }
  
         /**
@@ -46,7 +46,7 @@ namespace CodeRefractor.Compiler
             var definition = asm.EntryPoint; // TODO: what if this is not an application, but a library without an entry point?
             var start = Environment.TickCount;
 
-            var closureEntities = _getClosureEntitiesUtils()
+            var closureEntities = _closureEntitiesUtils.Value
                 .BuildClosureEntities(definition, typeof(CrString).Assembly);
 
             var sb = closureEntities.BuildFullSourceCode();

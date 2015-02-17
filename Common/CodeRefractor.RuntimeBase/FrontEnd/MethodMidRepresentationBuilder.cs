@@ -16,15 +16,44 @@ using Mono.Reflection;
 
 namespace CodeRefractor.FrontEnd
 {
-    internal class MethodMidRepresentationBuilder
+    /**
+     * A factory for MethodMidRepresentationBuilder classes/
+     */
+    public class MethodMidRepresentationBuilderProvider
+    {
+        private readonly MetaMidRepresentationOperationFactoryProvider _metaMidRepresentationOperationFactoryProvider;
+
+        public MethodMidRepresentationBuilderProvider(
+            MetaMidRepresentationOperationFactoryProvider metaMidRepresentationOperationFactoryProvider)
+        {
+            _metaMidRepresentationOperationFactoryProvider = metaMidRepresentationOperationFactoryProvider;
+        }
+
+        MethodMidRepresentationBuilder Get(
+            CilMethodInterpreter methodInterpreter,
+            MethodBase method)
+        {
+            return new MethodMidRepresentationBuilder(
+                methodInterpreter,
+                method,
+                _metaMidRepresentationOperationFactoryProvider);
+        }
+    }
+
+    public class MethodMidRepresentationBuilder
     {
         private readonly CilMethodInterpreter _methodInterpreter;
         private readonly MethodBase _method;
+        private readonly MetaMidRepresentationOperationFactoryProvider _metaMidRepresentationOperationFactoryProvider;
 
-        public MethodMidRepresentationBuilder(CilMethodInterpreter methodInterpreter, MethodBase method)
+        public MethodMidRepresentationBuilder(
+            CilMethodInterpreter methodInterpreter,
+            MethodBase method,
+            MetaMidRepresentationOperationFactoryProvider metaMidRepresentationOperationFactoryProvider)
         {
             _methodInterpreter = methodInterpreter;
             _method = method;
+            _metaMidRepresentationOperationFactoryProvider = metaMidRepresentationOperationFactoryProvider;
         }
 
         public void ProcessInstructions(ClosureEntities closureEntities)
@@ -40,7 +69,8 @@ namespace CodeRefractor.FrontEnd
 
             var labelList = ComputeLabels(_method);
             var evaluator = new EvaluatorStack(finalGeneric.ToArray());
-            var operationFactory = new MetaMidRepresentationOperationFactory(_methodInterpreter.MidRepresentation,
+            var operationFactory = _metaMidRepresentationOperationFactoryProvider.Get(
+                _methodInterpreter.MidRepresentation,
                 evaluator);
 
             for (var index = 0; index < instructions.Length; index++)

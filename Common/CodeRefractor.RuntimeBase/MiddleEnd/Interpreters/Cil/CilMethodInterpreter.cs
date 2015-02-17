@@ -9,14 +9,41 @@ using CodeRefractor.FrontEnd.SimpleOperations.Methods;
 using CodeRefractor.MiddleEnd.SimpleOperations;
 using CodeRefractor.MiddleEnd.SimpleOperations.Methods;
 using CodeRefractor.RuntimeBase;
+using CodeRefractor.Util;
+using Ninject;
 
 namespace CodeRefractor.MiddleEnd.Interpreters.Cil
 {
+    /**
+     * A CilMethodInterpreter provider.
+     */
+    public class CilMethodInterpreterProvider
+    {
+        private readonly Provider<MethodMidRepresentationBuilder> _methodMidRepresentationBuilderProvider;
+
+        public CilMethodInterpreterProvider(
+            Provider<MethodMidRepresentationBuilder> methodMidRepresentationBuilderProvider)
+        {
+            _methodMidRepresentationBuilderProvider = methodMidRepresentationBuilderProvider;
+        }
+
+        public CilMethodInterpreter Get(MethodBase method)
+        {
+            return new CilMethodInterpreter(
+                method,
+                _methodMidRepresentationBuilderProvider); // provided
+        }
+    }
+
     public class CilMethodInterpreter : MethodInterpreter, IEnumerable<LocalOperation>
     {
-        public CilMethodInterpreter(MethodBase method)
+        private readonly Provider<MethodMidRepresentationBuilder> _methodMidRepresentationBuilderProvider;
+
+        internal CilMethodInterpreter(MethodBase method, 
+            Provider<MethodMidRepresentationBuilder> methodMidRepresentationBuilderProvider)
             : base(method)
         {
+            _methodMidRepresentationBuilderProvider = methodMidRepresentationBuilderProvider;
             Kind = MethodKind.CilInstructions;
         }
 
@@ -37,6 +64,7 @@ namespace CodeRefractor.MiddleEnd.Interpreters.Cil
                 return;
 
             MidRepresentation.Vars.SetupLocalVariables(Method);
+            _methodMidRepresentationBuilderProvider.Value
             var midRepresentationBuilder = new MethodMidRepresentationBuilder(this, Method);
             midRepresentationBuilder.ProcessInstructions(closureEntities);
             Interpreted = true;

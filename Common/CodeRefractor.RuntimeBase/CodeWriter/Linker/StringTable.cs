@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Text;
 using CodeRefractor.CodeWriter.Output;
 using CodeRefractor.RuntimeBase;
+using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
@@ -14,6 +16,14 @@ namespace CodeRefractor.CodeWriter.Linker
     {
         private readonly Dictionary<string, int> _stringsDictionary = new Dictionary<string, int>();
         private readonly List<string> _table = new List<string>();
+
+        private Provider<CodeOutput> _codeOutputProvider;
+
+        [Inject]
+        public StringTable(Provider<CodeOutput> codeOutputProvider)
+        {
+            this._codeOutputProvider = codeOutputProvider;
+        }
 
         public int GetStringId(string text)
         {
@@ -38,7 +48,7 @@ namespace CodeRefractor.CodeWriter.Linker
 
         public string BuildStringTable()
         {
-            var sb = new CodeOutput();
+            var sb = _codeOutputProvider.Value;
             sb.BlankLine()
                 .Append("System_Void buildStringTable()")
                 .BracketOpen();

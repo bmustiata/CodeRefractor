@@ -15,14 +15,40 @@ using CodeRefractor.RuntimeBase.Shared;
 
 namespace CodeRefractor.ClosureCompute.Resolvers
 {
+    /**
+     * A factory class for ResolveRuntimeMethod items.
+     */
+    public class ResolveRuntimeMethodProvider
+    {
+        private readonly CilMethodInterpreterProvider _cilMethodInterpreterProvider;
+
+        public ResolveRuntimeMethodProvider(CilMethodInterpreterProvider cilMethodInterpreterProvider)
+        {
+            _cilMethodInterpreterProvider = cilMethodInterpreterProvider;
+        }
+
+        public ResolveRuntimeMethod Get(Assembly assembly, ClosureEntities closureEntities)
+        {
+            return new ResolveRuntimeMethod(
+                assembly,
+                closureEntities,
+                _cilMethodInterpreterProvider);
+        }
+    }
+
     public class ResolveRuntimeMethod : MethodResolverBase
     {
         private readonly ClosureEntities _closureEntities;
+        private readonly CilMethodInterpreterProvider _cilMethodInterpreterProvider;
         private readonly Dictionary<Type, Type> _solvedTypes;
 
-        public ResolveRuntimeMethod(Assembly assembly, ClosureEntities closureEntities)
+        public ResolveRuntimeMethod(
+            Assembly assembly,
+            ClosureEntities closureEntities,
+            CilMethodInterpreterProvider cilMethodInterpreterProvider) // provided
         {
             _closureEntities = closureEntities;
+            _cilMethodInterpreterProvider = cilMethodInterpreterProvider;
             _solvedTypes = assembly.GetTypes()
                 .Where(t => t.GetCustomAttribute<MapTypeAttribute>() != null)
                 .ToDictionary(
@@ -61,7 +87,7 @@ namespace CodeRefractor.ClosureCompute.Resolvers
             return ResolveMethodWithResult(resultMethod, method.DeclaringType);
         }
 
-        private static MethodInterpreter HandleConstructor(MethodBase method, Type resolvingType)
+        private MethodInterpreter HandleConstructor(MethodBase method, Type resolvingType)
         {
             var allConstuctors = resolvingType.GetConstructors(ClosureEntitiesBuilder.AllFlags).ToArray();
             var methodParameters = method.GetParameters();
@@ -76,7 +102,7 @@ namespace CodeRefractor.ClosureCompute.Resolvers
             return null;
         }
 
-        private static bool DoParametersMatch(ParameterInfo[] srcParams, ParameterInfo[] targetParams)
+        private bool DoParametersMatch(ParameterInfo[] srcParams, ParameterInfo[] targetParams)
         {
             if (srcParams.Length != targetParams.Length)
                 return false;
@@ -91,7 +117,7 @@ namespace CodeRefractor.ClosureCompute.Resolvers
         }
 
 
-        public static MethodInfo CalculateResultMethod(MethodBase method, List<MethodInfo> allMethods, ClosureEntities closureEntities)
+        public MethodInfo CalculateResultMethod(MethodBase method, List<MethodInfo> allMethods, ClosureEntities closureEntities)
         {
             var srcParams = method.GetParameters().Select(par => par.ParameterType).ToList();
             if (!method.IsStatic)
@@ -130,14 +156,13 @@ namespace CodeRefractor.ClosureCompute.Resolvers
             return null;
         }
 
-        public static MethodInterpreter ResolveMethodWithResult(MethodBase resultMethod, Type overrideType)
+        public MethodInterpreter ResolveMethodWithResult(MethodBase resultMethod, Type overrideType)
         {
             if (!CppMethodInterpreter.IsCppMethod(resultMethod))
             {
-                var result = new CilMethodInterpreter(resultMethod)
-                {
-                    OverrideDeclaringType = overrideType
-                };
+                var result = _cilMethodInterpreterProvider.Get(resultMethod);
+                result.OverrideDeclaringType = overrideType;
+
                 return result;
             }
             var cppResult = new CppMethodInterpreter(resultMethod)

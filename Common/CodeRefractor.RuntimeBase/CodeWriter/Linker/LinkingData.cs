@@ -2,33 +2,29 @@
 
 using System.Collections.Generic;
 using CodeRefractor.CodeWriter.Platform;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.CodeWriter.Linker
 {
+    // Singleton
     public class LinkingData
     {
         public static readonly List<PlatformInvokeDllImports> Libraries = new List<PlatformInvokeDllImports>();
         public static int LibraryMethodCount;
 
-        public StringTable Strings = new StringTable();
+        public StringTable Strings;
         public GenerateTypeTableForIsInst IsInstTable = new GenerateTypeTableForIsInst();
+        public readonly HashSet<string> Includes = new HashSet<string>();
 
-        #region Singleton instance
-
-        private static readonly LinkingData StaticInstance = new LinkingData();
-
-        public static LinkingData Instance
+        [Inject]
+        public LinkingData(StringTable stringTable)
         {
-            get { return StaticInstance; }
+            this.Strings = stringTable;
         }
 
-        public static readonly HashSet<string> Includes = new HashSet<string>();
-
-        #endregion
-
-        public static bool SetInclude(string include)
+        public bool SetInclude(string include)
         {
             if (string.IsNullOrWhiteSpace(include))
                 return false;

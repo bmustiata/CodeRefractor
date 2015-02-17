@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using CodeRefractor.Util;
+using Ninject;
 
 namespace CodeRefractor.CodeWriter.Output
 {
@@ -18,11 +19,15 @@ namespace CodeRefractor.CodeWriter.Output
 
         // keeps in mind if the outputting is now at a line beginning or not.
         private bool _atLineBeginning = true;
+        private string _enterString;
 
-        public CodeOutput()
+        [Inject]
+        public CodeOutput([EnterStyle] string enterString)
         {
             this._stringBuilderOutput = new StringBuilder("");
             this._indentCode = new IndentCode(this._stringBuilderOutput);
+
+            this._enterString = enterString;
         }
 
         /**
@@ -64,7 +69,7 @@ namespace CodeRefractor.CodeWriter.Output
             _stringBuilderOutput.Append(lines[0]);
             lines.ButFirst(line =>
             {
-                _stringBuilderOutput.Append("\n");
+                _stringBuilderOutput.Append(_enterString);
 
                 if (line != "")
                 {
@@ -86,7 +91,7 @@ namespace CodeRefractor.CodeWriter.Output
          */
         public CodeOutput BracketOpen()
         {
-            _stringBuilderOutput.Append(" {\n");
+            _stringBuilderOutput.Append(" {" + _enterString);
             _indentCode.ChangeIndent(+1);
             _atLineBeginning = true;
 
@@ -107,7 +112,7 @@ namespace CodeRefractor.CodeWriter.Output
             }
             else
             {
-                this.Append("\n}");
+                this.Append(_enterString + "}");
             }
 
             if (!assignedStatement)
@@ -127,11 +132,11 @@ namespace CodeRefractor.CodeWriter.Output
             // there's no need to close the current line
             if (_atLineBeginning)
             {
-                _stringBuilderOutput.Append("\n");
+                _stringBuilderOutput.Append(_enterString);
             }
             else
             {
-                _stringBuilderOutput.Append("\n\n");
+                _stringBuilderOutput.Append(_enterString + _enterString);
             }
 
             _atLineBeginning = true;

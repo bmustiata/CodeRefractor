@@ -17,13 +17,20 @@ using CodeRefractor.Util;
 
 namespace CodeRefractor.CodeWriter.BasicOperations
 {
-    public static class CppWriteSignature
+    public class CppWriteSignature
     {
-        public static string GetArgumentsAsTextWithEscaping(this MethodInterpreter interpreter, ClosureEntities closureEntities)
+        private readonly LinkerUtils _linkerUtils;
+
+        public CppWriteSignature(LinkerUtils linkerUtils)
+        {
+            _linkerUtils = linkerUtils;
+        }
+
+        public string GetArgumentsAsTextWithEscaping(MethodInterpreter interpreter, ClosureEntities closureEntities)
         {
             var method = interpreter.Method;
             var parameterInfos = method.GetParameters();
-            var escapingBools = method.BuildEscapingBools(closureEntities);
+            var escapingBools = _linkerUtils.BuildEscapingBools(method, closureEntities);
             var sb = new StringBuilder();
             var index = 0;
             var analyze = interpreter.AnalyzeProperties;
@@ -37,7 +44,12 @@ namespace CodeRefractor.CodeWriter.BasicOperations
                 });
                 if (parameterData != EscapingMode.Unused)
                 {
-                    TypeDescription argumentTypeDescription = UsedTypeList.Set(method.DeclaringType.GetReversedMappedType(closureEntities) ?? method.DeclaringType.GetMappedType(closureEntities), closureEntities);
+                    TypeDescription argumentTypeDescription = 
+                        UsedTypeList.Set(
+                            method.DeclaringType
+                                .GetReversedMappedType(closureEntities) ?? 
+                                method.DeclaringType.GetMappedType(closureEntities), 
+                                closureEntities);
                     var thisText = String.Format("{0} _this",
                             argumentTypeDescription.ClrType.ToCppName(EscapingMode.Pointer));
                   
@@ -75,7 +87,7 @@ namespace CodeRefractor.CodeWriter.BasicOperations
         }
 
 
-        public static void WriteHeaderMethodWithEscaping(this MethodInterpreter interpreter,
+        public void WriteHeaderMethodWithEscaping(MethodInterpreter interpreter,
             CodeOutput codeOutput,
             ClosureEntities closureEntities,
             bool writeEndColon = true)
@@ -86,19 +98,19 @@ namespace CodeRefractor.CodeWriter.BasicOperations
                 .Append(" ")
                 .Append(interpreter.ClangMethodSignature(closureEntities));
 
-            var arguments = interpreter.GetArgumentsAsTextWithEscaping(closureEntities);
+            var arguments = GetArgumentsAsTextWithEscaping(interpreter, closureEntities);
 
             codeOutput.AppendFormat("({0})", arguments);
             if (writeEndColon)
                 codeOutput.Append(";");
         }
 
-        public static void WriteSignature(CodeOutput codeOutput, MethodInterpreter interpreter, ClosureEntities closureEntities, bool writeEndColon = false)
+        public void WriteSignature(CodeOutput codeOutput, MethodInterpreter interpreter, ClosureEntities closureEntities, bool writeEndColon = false)
         {
             if (interpreter == null)
                 return;
-            
-            interpreter.WriteHeaderMethodWithEscaping(codeOutput, closureEntities, writeEndColon);
+
+            WriteHeaderMethodWithEscaping(interpreter, codeOutput, closureEntities, writeEndColon);
         }
     }
 }

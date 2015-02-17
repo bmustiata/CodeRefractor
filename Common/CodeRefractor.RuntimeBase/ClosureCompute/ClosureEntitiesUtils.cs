@@ -9,20 +9,24 @@ namespace CodeRefractor.ClosureCompute
 {
     public class ClosureEntitiesUtils
     {
-        private Func<ClosureEntities> _getClosureEntities;
+        private Provider<ClosureEntities> _closureEntitiesProvider;
+        private readonly ResolveRuntimeMethodProvider _resolveRuntimeMethodProvider;
 
-        public ClosureEntitiesUtils(Func<ClosureEntities> getClosureEntities)
+        public ClosureEntitiesUtils(
+            Provider<ClosureEntities> closureEntitiesProvider,
+            ResolveRuntimeMethodProvider resolveRuntimeMethodProvider)
         {
-            this._getClosureEntities = getClosureEntities;
+            this._closureEntitiesProvider = closureEntitiesProvider;
+            _resolveRuntimeMethodProvider = resolveRuntimeMethodProvider;
         }
 
         public ClosureEntities BuildClosureEntities(MethodInfo definition, Assembly runtimeAssembly)
         {
-            var closureEntities = _getClosureEntities();
+            var closureEntities = _closureEntitiesProvider.Value;
 
             closureEntities.EntryPoint = definition;
 
-            var resolveRuntimeMethod = new ResolveRuntimeMethod(runtimeAssembly, closureEntities);
+            var resolveRuntimeMethod = _resolveRuntimeMethodProvider.Get(runtimeAssembly, closureEntities);
             closureEntities.AddMethodResolver(resolveRuntimeMethod);
 
             closureEntities.AddMethodResolver(new ResolvePlatformInvokeMethod());

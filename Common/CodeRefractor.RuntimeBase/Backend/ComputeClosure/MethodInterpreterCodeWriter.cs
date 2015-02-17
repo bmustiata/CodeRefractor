@@ -11,19 +11,36 @@ using CodeRefractor.MiddleEnd.Interpreters;
 using CodeRefractor.MiddleEnd.Interpreters.Cil;
 using CodeRefractor.MiddleEnd.Optimizations.Common;
 using CodeRefractor.RuntimeBase.TypeInfoWriter;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.Backend.ComputeClosure
 {
-    public static class MethodInterpreterCodeWriter
+    public class MethodInterpreterCodeWriter
     {
-        public static string WriteMethodCode(CilMethodInterpreter interpreter, TypeDescriptionTable typeTable, ClosureEntities closureEntities)
+        private readonly CppMethodCodeWriter _cppMethodCodeWriter;
+        private readonly CppWriteSignature _cppWriteSignature;
+        private readonly PlatformInvokeCodeWriter _platformInvokeCodeWriter;
+
+        [Inject]
+        public MethodInterpreterCodeWriter(
+            CppMethodCodeWriter cppMethodCodeWriter,
+            CppWriteSignature cppWriteSignature,
+            PlatformInvokeCodeWriter platformInvokeCodeWriter)
         {
-            return CppMethodCodeWriter.WriteCode(interpreter, typeTable, closureEntities);
+            _cppMethodCodeWriter = cppMethodCodeWriter;
+            _cppWriteSignature = cppWriteSignature;
+            _platformInvokeCodeWriter = platformInvokeCodeWriter;
         }
 
-        public static void WriteMethodSignature(CodeOutput codeOutput, MethodInterpreter interpreter, ClosureEntities closureEntities)
+        public string WriteMethodCode(CilMethodInterpreter interpreter, TypeDescriptionTable typeTable, ClosureEntities closureEntities)
+        {
+            return _cppMethodCodeWriter.WriteCode(interpreter, typeTable, closureEntities);
+        }
+
+        public void WriteMethodSignature(CodeOutput codeOutput, 
+            MethodInterpreter interpreter, ClosureEntities closureEntities)
         {
             if (interpreter.Method == null)
             {
@@ -31,20 +48,20 @@ namespace CodeRefractor.Backend.ComputeClosure
                 return;
             }
 
-            CppWriteSignature.WriteSignature(codeOutput, interpreter, closureEntities, true);
+            _cppWriteSignature.WriteSignature(codeOutput, interpreter, closureEntities, true);
         }
 
-        internal static string WritePInvokeMethodCode(PlatformInvokeMethod interpreter, ClosureEntities crRuntime)
+        internal string WritePInvokeMethodCode(PlatformInvokeMethod interpreter, ClosureEntities crRuntime)
         {
-            return interpreter.WritePlatformInvokeMethod(crRuntime);
+            return _platformInvokeCodeWriter.WritePlatformInvokeMethod(interpreter, crRuntime);
         }
 
-        public static string WriteDelegateCallCode(MethodInterpreter interpreter)
+        public string WriteDelegateCallCode(MethodInterpreter interpreter)
         {
-            return interpreter.WriteDelegateCallCode();
+            return _platformInvokeCodeWriter.WriteDelegateCallCode(interpreter);
         }
 
-        public static bool ApplyLocalOptimizations(IEnumerable<ResultingOptimizationPass> optimizationPasses, CilMethodInterpreter interpreter, ClosureEntities entities)
+        public bool ApplyLocalOptimizations(IEnumerable<ResultingOptimizationPass> optimizationPasses, CilMethodInterpreter interpreter, ClosureEntities entities)
         {
             if (optimizationPasses == null)
                 return false;

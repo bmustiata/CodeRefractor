@@ -12,6 +12,7 @@ using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.MiddleEnd;
 using CodeRefractor.RuntimeBase.MiddleEnd.SimpleOperations;
 using CodeRefractor.RuntimeBase.Optimizations;
+using Ninject;
 
 #endregion
 
@@ -20,6 +21,14 @@ namespace CodeRefractor.RuntimeBase.Backend.Optimizations.Inliner
     [Optimization(Category = OptimizationCategories.DeadCodeElimination)]
     public class RemoveCallsToEmptyMethods : ResultingGlobalOptimizationPass
     {
+        private readonly LinkerUtils _linkerUtils;
+
+        [Inject]
+        public RemoveCallsToEmptyMethods(LinkerUtils linkerUtils)
+        {
+            _linkerUtils = linkerUtils;
+        }
+
         public override void OptimizeOperations(CilMethodInterpreter methodInterpreter)
         {
             var toRemove = new List<int>();
@@ -33,7 +42,7 @@ namespace CodeRefractor.RuntimeBase.Backend.Optimizations.Inliner
                 if (localOperation.Kind != OperationKind.Call) continue;
 
                 var methodData = (CallMethodStatic) localOperation;
-                var interpreter = methodData.Info.GetInterpreter(Closure);
+                var interpreter = _linkerUtils.GetInterpreter(methodData.Info, Closure);
                 if (interpreter == null)
                     continue;
                 var isEmpty = interpreter.AnalyzeProperties.IsEmpty;

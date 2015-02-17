@@ -1,6 +1,6 @@
 ﻿#region Usings
 
-using CodeRefractor.Backend.Linker;
+using CodeRefractor.CodeWriter.Linker;
 using CodeRefractor.MiddleEnd.Interpreters;
 using CodeRefractor.MiddleEnd.Interpreters.Cil;
 using CodeRefractor.MiddleEnd.Optimizations.Common;
@@ -15,7 +15,14 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 	[Optimization(Category = OptimizationCategories.Analysis)]
     public class AnalyzeFunctionPurity : ResultingGlobalOptimizationPass
     {
-        public static bool ReadPurity(MethodInterpreter intermediateCode)
+	    private readonly LinkerUtils _linkerUtils;
+
+	    public AnalyzeFunctionPurity(LinkerUtils linkerUtils)
+	    {
+	        _linkerUtils = linkerUtils;
+	    }
+
+	    public bool ReadPurity(MethodInterpreter intermediateCode)
         {
             if (intermediateCode == null)
                 return false;
@@ -35,7 +42,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
             Result = true;
         }
 
-        public static bool ComputeFunctionPurity(CilMethodInterpreter intermediateCode)
+        public bool ComputeFunctionPurity(CilMethodInterpreter intermediateCode)
         {
             if (intermediateCode == null)
                 return false;
@@ -52,7 +59,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 
                     case OperationKind.Call:
                         var operationData = (CallMethodStatic) localOperation;
-                        var readPurity = LinkerInterpretersTableUtils.ReadPurity(operationData.Info, Closure);
+                        var readPurity = _linkerUtils.ReadPurity(operationData.Info, Closure);
                         if (!readPurity)
                             return false;
                         break;

@@ -19,6 +19,14 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Licm
     [Optimization(Category = OptimizationCategories.CommonSubexpressionsElimination)]
     internal class LoopInvariantCodeMotion : ResultingGlobalOptimizationPass
     {
+        private readonly EvaluatePureFunctionWithConstantCall _evaluatePureFunctionWithConstantCall;
+
+        public LoopInvariantCodeMotion(
+            EvaluatePureFunctionWithConstantCall evaluatePureFunctionWithConstantCall)
+        {
+            _evaluatePureFunctionWithConstantCall = evaluatePureFunctionWithConstantCall;
+        }
+
         public override bool CheckPreconditions(CilMethodInterpreter midRepresentation, ClosureEntities closure)
         {
             var loopStarts = LoopDetection.FindLoops(midRepresentation.MidRepresentation);
@@ -44,7 +52,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Licm
             }
         }
 
-        private static void PerformMoveInstructions(MetaMidRepresentation intermediateCode, int loopStart,
+        private void PerformMoveInstructions(MetaMidRepresentation intermediateCode, int loopStart,
             List<int> allInvariantInstructions)
         {
             var localOps = intermediateCode.LocalOperations;
@@ -63,7 +71,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Licm
             }
         }
 
-        private static List<int> GetAllInvariantInstructions(MetaMidRepresentation intermediateCode, int loopStart,
+        private List<int> GetAllInvariantInstructions(MetaMidRepresentation intermediateCode, int loopStart,
             int loopEnd, HashSet<LocalVariable> getAllDefinedVariables)
         {
             var useDef = intermediateCode.UseDef;
@@ -87,7 +95,8 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Licm
                 }
                 if (op.Kind == OperationKind.Call)
                 {
-                    var methodData = EvaluatePureFunctionWithConstantCall.ComputeAndEvaluatePurityOfCall(op);
+                    var methodData = _evaluatePureFunctionWithConstantCall
+                        .ComputeAndEvaluatePurityOfCall(op);
                     if (!methodData.Interpreter.AnalyzeProperties.IsPure)
                         continue;
                 }
@@ -107,7 +116,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Licm
             return result;
         }
 
-        private static HashSet<LocalVariable> GetAllDefinedVariables(MetaMidRepresentation intermediateCode,
+        private HashSet<LocalVariable> GetAllDefinedVariables(MetaMidRepresentation intermediateCode,
             int loopStart, int loopEnd)
         {
             var localOps = intermediateCode.UseDef.GetLocalOperations();

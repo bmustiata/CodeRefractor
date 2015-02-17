@@ -18,15 +18,24 @@ using CodeRefractor.RuntimeBase.MiddleEnd;
 
 namespace CodeRefractor.Analyze
 {
-    public static class GlobalMethodPool
+    public class GlobalMethodPool
     {
-        private static readonly SortedDictionary<MethodInterpreterKey, MethodInterpreter> Interpreters =
+        private readonly CilMethodInterpreterProvider _cilMethodInterpreterProvider;
+
+        private readonly SortedDictionary<MethodInterpreterKey, MethodInterpreter> Interpreters =
             new SortedDictionary<MethodInterpreterKey, MethodInterpreter>();
 
-        public static readonly Dictionary<Assembly, CrTypeResolver> TypeResolvers
+        public readonly Dictionary<Assembly, CrTypeResolver> TypeResolvers
             = new Dictionary<Assembly, CrTypeResolver>();
 
-        public static void Register(MethodInterpreter interpreter)
+        private readonly Dictionary<MethodBase, string> CachedKeys = new Dictionary<MethodBase, string>();
+
+        public GlobalMethodPool(CilMethodInterpreterProvider cilMethodInterpreterProvider)
+        {
+            _cilMethodInterpreterProvider = cilMethodInterpreterProvider;
+        }
+
+        public void Register(MethodInterpreter interpreter)
         {
             var method = interpreter.Method;
             if (method == null)
@@ -34,10 +43,10 @@ namespace CodeRefractor.Analyze
             Interpreters[interpreter.ToKey()] = interpreter;
         }
 
-        public static MethodInterpreter Register(this MethodBase method)
+        public MethodInterpreter Register(MethodBase method)
         {
             SetupTypeResolverIfNecesary(method);
-            var interpreter = new CilMethodInterpreter(method);
+            var interpreter = _cilMethodInterpreterProvider.Get(method);
             Register(interpreter);
 
             var resolved = Resolve(method);
@@ -48,7 +57,7 @@ namespace CodeRefractor.Analyze
             return null;
         }
 
-        public static MethodInterpreter Resolve(MethodBase interpreter)
+        public MethodInterpreter Resolve(MethodBase interpreter)
         {
             SetupTypeResolverIfNecesary(interpreter);
             var resolvers = GetTypeResolvers();
@@ -61,7 +70,7 @@ namespace CodeRefractor.Analyze
             return null;
         }
 
-        public static CrTypeResolver[] GetTypeResolvers()
+        public CrTypeResolver[] GetTypeResolvers()
         {
             var resolvers = TypeResolvers.Values
                 .Where(r => r != null)
@@ -69,7 +78,7 @@ namespace CodeRefractor.Analyze
             return resolvers;
         }
 
-        private static void SetupTypeResolverIfNecesary(MethodBase method)
+        private void SetupTypeResolverIfNecesary(MethodBase method)
         {
             try
             {
@@ -95,9 +104,7 @@ namespace CodeRefractor.Analyze
             TypeResolvers[assembly] = resolver;
         }
 
-        private static readonly Dictionary<MethodBase, string> CachedKeys = new Dictionary<MethodBase, string>();
-
-        public static MethodBase GetReversedMethod(this MethodBase methodInfo, ClosureEntities crRuntime)
+        public MethodBase GetReversedMethod(MethodBase methodInfo, ClosureEntities crRuntime)
         {
             var reverseType = methodInfo.DeclaringType.GetMappedType(crRuntime);
             if (reverseType == methodInfo.DeclaringType)

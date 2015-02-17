@@ -1,8 +1,11 @@
 #region Uses
 
+using System;
 using System.Collections.Generic;
 using System.Text;
 using CodeRefractor.CodeWriter.Output;
+using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
@@ -14,36 +17,42 @@ namespace CodeRefractor.MiddleEnd.SimpleOperations.ConstTable
             new Dictionary<ConstByteArrayData, int>(new ConstByteArrayData.EqualityComparer());
 
         public List<ConstByteArrayData> ItemList = new List<ConstByteArrayData>();
-        private static readonly ConstByteArrayList StaticInstance = new ConstByteArrayList();
 
-        public static int RegisterConstant(byte[] values)
+        private Provider<CodeOutput> _codeOutputProvider;
+
+        [Inject]
+        public ConstByteArrayList(Provider<CodeOutput> codeOutputProvider)
+        {
+            this._codeOutputProvider = codeOutputProvider;
+        }
+
+        public int RegisterConstant(byte[] values)
         {
             var data = new ConstByteArrayData(values);
             int resultId;
-            if (Instance.Items.TryGetValue(data, out resultId))
+            
+            if (Items.TryGetValue(data, out resultId))
             {
                 return resultId;
             }
-            var id = Instance.Items.Count;
-            Instance.ItemList.Add(data);
-            Instance.Items[data] = id;
+            
+            var id = Items.Count;
+            
+            ItemList.Add(data);
+            Items[data] = id;
+
             return id;
         }
 
-        public static ConstByteArrayList Instance
+        public string BuildConstantTable()
         {
-            get { return StaticInstance; }
-        }
-
-        public static string BuildConstantTable()
-        {
-            var sb = new CodeOutput();
+            var sb = _codeOutputProvider.Value;
 
             sb.BlankLine()
                 .Append("System_Void RuntimeHelpersBuildConstantTable()")
                 .BracketOpen();
 
-            foreach (var item in Instance.ItemList)
+            foreach (var item in ItemList)
             {
                 var rightArray = item.Data;
                 var rightArrayItems = string.Join(", ", rightArray);

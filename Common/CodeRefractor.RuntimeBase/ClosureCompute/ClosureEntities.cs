@@ -4,27 +4,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Security.Cryptography;
-using System.Text;
 using CodeRefractor.Backend;
 using CodeRefractor.Backend.ComputeClosure;
 using CodeRefractor.Backend.ProgramWideOptimizations;
 using CodeRefractor.Backend.ProgramWideOptimizations.Virtual;
-using CodeRefractor.CodeWriter.Linker;
 using CodeRefractor.CodeWriter.Output;
 using CodeRefractor.CompilerBackend.ProgramWideOptimizations.ConstParameters;
 using CodeRefractor.FrontEnd.SimpleOperations.Methods;
-using CodeRefractor.MiddleEnd;
 using CodeRefractor.MiddleEnd.Interpreters;
 using CodeRefractor.MiddleEnd.Interpreters.Cil;
 using CodeRefractor.MiddleEnd.Optimizations.Common;
 using CodeRefractor.MiddleEnd.Optimizations.Util;
-using CodeRefractor.MiddleEnd.SimpleOperations.Methods;
-using CodeRefractor.RuntimeBase;
 using CodeRefractor.RuntimeBase.Config;
-using CodeRefractor.RuntimeBase.MiddleEnd;
 using CodeRefractor.RuntimeBase.TypeInfoWriter;
 using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
@@ -47,11 +41,15 @@ namespace CodeRefractor.ClosureCompute
         public bool EnableProgramWideOptimizations { get; set; }
 
         public List<RuntimeFeature> Features = new List<RuntimeFeature>();
-        private readonly Func<CppCodeGenerator> _getCppCodeGenerator;
+        private readonly Provider<CppCodeGenerator> _cppCodeGeneratorProvider;
+        private readonly MethodInterpreterCodeWriter _methodInterpreterCodeWriter;
 
-        public ClosureEntities(Func<CppCodeGenerator> getCppCodeGenerator)
+        [Inject]
+        public ClosureEntities(Provider<CppCodeGenerator> cppCodeGeneratorProvider,
+            MethodInterpreterCodeWriter methodInterpreterCodeWriter)
         {
-            this._getCppCodeGenerator = getCppCodeGenerator;
+            this._cppCodeGeneratorProvider = cppCodeGeneratorProvider;
+            _methodInterpreterCodeWriter = methodInterpreterCodeWriter;
 
             MappedTypes = new Dictionary<Type, Type>();
             MethodImplementations = new Dictionary<MethodBaseKey, MethodInterpreter>(new MethodBaseKeyComparer());
@@ -128,11 +126,12 @@ namespace CodeRefractor.ClosureCompute
             List<Type> usedTypes = MappedTypes.Values.ToList();
             var typeTable = new TypeDescriptionTable(usedTypes,this);
 
-            return _getCppCodeGenerator().GenerateSourceCodeOutput(
-                entryInterpreter,
-                typeTable,
-                MethodImplementations.Values.ToList(), 
-                this);
+            return _cppCodeGeneratorProvider.Value
+                .GenerateSourceCodeOutput(
+                    entryInterpreter,
+                    typeTable,
+                    MethodImplementations.Values.ToList(), 
+                    this);
         }
 
         public Type ResolveType(Type type)
@@ -190,7 +189,7 @@ namespace CodeRefractor.ClosureCompute
             
                 foreach (var cilMethod in cilMethods)
                 {
-                    isOptimizationPossible |= MethodInterpreterCodeWriter.ApplyLocalOptimizations(optimizations, cilMethod, entities);
+                    isOptimizationPossible |= _methodInterpreterCodeWriter.ApplyLocalOptimizations(optimizations, cilMethod, entities);
                 }
                 
                 var programWideOptimizationsAvailable = ApplyProgramWideOptimizations();

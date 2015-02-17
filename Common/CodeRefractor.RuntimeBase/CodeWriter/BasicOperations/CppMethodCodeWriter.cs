@@ -18,23 +18,45 @@ using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.CodeWriter.BasicOperations;
 using CodeRefractor.RuntimeBase.TypeInfoWriter;
 using CodeRefractor.Util;
+using Ninject;
 
 #endregion
 
 namespace CodeRefractor.CodeWriter.BasicOperations
 {
-    public static class CppMethodCodeWriter
+    // Singleton
+    public class CppMethodCodeWriter
     {
-        public static string WriteCode(CilMethodInterpreter interpreter, TypeDescriptionTable typeTable,
+        private Provider<CodeOutput> _codeOutputProvider;
+        private readonly CppCastRelatedOperations _cppCastRelatedOperations;
+        private readonly CppHandleOperators _cppHandleOperators;
+        private readonly CppHandleCalls _cppHandleCalls;
+        private readonly CppWriteSignature _cppWriteSignature;
+
+        [Inject]
+        public CppMethodCodeWriter(Provider<CodeOutput> codeOutputProvider,
+                    CppCastRelatedOperations cppCastRelatedOperations,
+                    CppHandleOperators cppHandleOperators,
+                    CppHandleCalls cppHandleCalls,
+                    CppWriteSignature cppWriteSignature)
+        {
+            _codeOutputProvider = codeOutputProvider;
+            _cppCastRelatedOperations = cppCastRelatedOperations;
+            _cppHandleOperators = cppHandleOperators;
+            _cppHandleCalls = cppHandleCalls;
+            _cppWriteSignature = cppWriteSignature;
+        }
+
+        public string WriteCode(CilMethodInterpreter interpreter, TypeDescriptionTable typeTable,
             ClosureEntities crRuntime)
         {
             var operations = interpreter.MidRepresentation.LocalOperations;
-            var headerSb = new CodeOutput();
-            CppWriteSignature.WriteSignature(headerSb, interpreter, crRuntime);
+            var headerSb = _codeOutputProvider.Value;
+            _cppWriteSignature.WriteSignature(headerSb, interpreter, crRuntime);
 
             var bodySb = ComputeBodySb(operations, interpreter.MidRepresentation.Vars, typeTable, interpreter, crRuntime);
             var variablesSb = ComputeVariableSb(interpreter.MidRepresentation, interpreter, crRuntime);
-            var finalSb = new CodeOutput();
+            var finalSb = _codeOutputProvider.Value;
 
             finalSb.Append(headerSb.ToString())
                     .BracketOpen()
@@ -45,17 +67,19 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             return finalSb.ToString();
         }
 
-        private static CodeOutput ComputeBodySb(List<LocalOperation> operations, MidRepresentationVariables vars,
+        private CodeOutput ComputeBodySb(List<LocalOperation> operations, MidRepresentationVariables vars,
             TypeDescriptionTable typeTable, MethodInterpreter interpreter, ClosureEntities crRuntime)
         {
-            CodeOutput bodySb = new CodeOutput();
+            CodeOutput bodySb = _codeOutputProvider.Value;
             foreach (var operation in operations)
             {
                 bodySb.Append("\n");
-                if (CppHandleOperators.HandleAssignmentOperations(bodySb, operation, operation.Kind, typeTable,
+                if (_cppHandleOperators.HandleAssignmentOperations(bodySb, operation, operation.Kind, typeTable,
                     interpreter, crRuntime))
                     continue;
-                if (CppCastRelatedOperations.HandleCastRelatedOperations(typeTable, crRuntime, operation, bodySb, operation.Kind))
+                if (_cppCastRelatedOperations.HandleCastRelatedOperations(
+                        typeTable, crRuntime, operation, bodySb, operation.Kind
+                    ))
                     continue;
                 if (HandleCallOperations(vars, interpreter, crRuntime, operation, bodySb))
                     continue;
@@ -72,7 +96,7 @@ namespace CodeRefractor.CodeWriter.BasicOperations
                         CppHandleBranches.HandleBranchOperator(operation, bodySb);
                         break;
                     case OperationKind.Return:
-                        CppHandleCalls.HandleReturn(operation,bodySb,interpreter);
+                        _cppHandleCalls.HandleReturn(operation,bodySb,interpreter);
                         break;
 
                     case OperationKind.CopyArrayInitializer:
@@ -100,22 +124,22 @@ namespace CodeRefractor.CodeWriter.BasicOperations
             return bodySb;
         }
 
-        private static bool HandleCallOperations(MidRepresentationVariables vars, MethodInterpreter interpreter,
+        private bool HandleCallOperations(MidRepresentationVariables vars, MethodInterpreter interpreter,
             ClosureEntities crRuntime, LocalOperation operation, CodeOutput bodySb)
         {
             switch (operation.Kind)
             {
                 case OperationKind.Call:
-                    CppHandleCalls.HandleCall(operation, bodySb, vars, interpreter, crRuntime);
+                    _cppHandleCalls.HandleCall(operation, bodySb, vars, interpreter, crRuntime);
                     break;
                 case OperationKind.CallInterface:
-                    CppHandleCalls.HandleCallInterface(operation, bodySb, vars, interpreter, crRuntime);
+                    _cppHandleCalls.HandleCallInterface(operation, bodySb, vars, interpreter, crRuntime);
                     break;
                 case OperationKind.CallVirtual:
-                    CppHandleCalls.HandleCallVirtual(operation, bodySb, interpreter, crRuntime);
+                    _cppHandleCalls.HandleCallVirtual(operation, bodySb, interpreter, crRuntime);
                     break;
                 case OperationKind.CallRuntime:
-                    CppHandleCalls.HandleCallRuntime(operation, bodySb, crRuntime);
+                    _cppHandleCalls.HandleCallRuntime(operation, bodySb, crRuntime);
                     break;
                 default:
                     return false;

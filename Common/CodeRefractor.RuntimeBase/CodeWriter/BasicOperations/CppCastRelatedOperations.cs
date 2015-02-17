@@ -10,11 +10,13 @@ using CodeRefractor.RuntimeBase.Analyze;
 using CodeRefractor.RuntimeBase.MiddleEnd.SimpleOperations;
 using CodeRefractor.RuntimeBase.TypeInfoWriter;
 using CodeRefractor.Util;
+using Ninject;
 
 namespace CodeRefractor.CodeWriter.BasicOperations
 {
-    static class CppCastRelatedOperations
+    public class CppCastRelatedOperations
     {
+        private readonly LinkingData _linkingData;
         private static string BoxingTemplate = @"
 template<class T>
 struct BoxedT : public System_Object
@@ -37,13 +39,18 @@ T unbox_value(" + TypeNamerUtils.StdSharedPtr + @"<System_Object> value){
 	return castedUnboxing->Data;
 }";
 
-
-        private static void HandleIsInstance(IsInstance operation, CodeOutput bodySb, ClosureEntities crRuntime)
+        [Inject]
+        public CppCastRelatedOperations(LinkingData linkingData)
         {
-            LinkingData.Instance.IsInstTable.GenerateInstructionCode(operation, bodySb, crRuntime);
+            _linkingData = linkingData;
         }
 
-        private static void HandleUnbox(Unboxing unboxing, CodeOutput bodySb, ClosureEntities closureEntities)
+        private void HandleIsInstance(IsInstance operation, CodeOutput bodySb, ClosureEntities crRuntime)
+        {
+            _linkingData.IsInstTable.GenerateInstructionCode(operation, bodySb, crRuntime);
+        }
+
+        private void HandleUnbox(Unboxing unboxing, CodeOutput bodySb, ClosureEntities closureEntities)
         {
             var typeDescription = unboxing.AssignedTo.ComputedType();
             bodySb
@@ -53,7 +60,7 @@ T unbox_value(" + TypeNamerUtils.StdSharedPtr + @"<System_Object> value){
                     typeDescription.GetClrType(closureEntities).ToDeclaredVariableType(EscapingMode.Stack));
         }
 
-        private static void HandleBox(Boxing boxing, CodeOutput bodySb, TypeDescriptionTable typeTable, ClosureEntities closureEntities)
+        private void HandleBox(Boxing boxing, CodeOutput bodySb, TypeDescriptionTable typeTable, ClosureEntities closureEntities)
         {
 
 
@@ -67,7 +74,7 @@ T unbox_value(" + TypeNamerUtils.StdSharedPtr + @"<System_Object> value){
         }
 
 
-        private static void HandleCastClass(ClassCasting casting, CodeOutput bodySb, ClosureEntities closureEntities)
+        private void HandleCastClass(ClassCasting casting, CodeOutput bodySb, ClosureEntities closureEntities)
         {
             var typeDescription = casting.AssignedTo.ComputedType();
             bodySb
@@ -77,7 +84,7 @@ T unbox_value(" + TypeNamerUtils.StdSharedPtr + @"<System_Object> value){
                     typeDescription.GetClrType(closureEntities).ToDeclaredVariableType(EscapingMode.Stack));
         }
 
-        public static bool HandleCastRelatedOperations(TypeDescriptionTable typeTable, ClosureEntities crRuntime,
+        public bool HandleCastRelatedOperations(TypeDescriptionTable typeTable, ClosureEntities crRuntime,
             LocalOperation operation, CodeOutput bodySb, OperationKind opKind)
         {
             switch (opKind)

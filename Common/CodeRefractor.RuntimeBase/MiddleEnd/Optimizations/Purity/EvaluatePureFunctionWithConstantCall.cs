@@ -20,7 +20,17 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 	[Optimization(Category = OptimizationCategories.Purity)]
     internal class EvaluatePureFunctionWithConstantCall : ResultingGlobalOptimizationPass
     {
-        public override bool CheckPreconditions(CilMethodInterpreter midRepresentation, ClosureEntities closure)
+	    private readonly LinkerUtils _linkerUtils;
+	    private readonly AnalyzeFunctionPurity _analyzeFunctionPurity;
+
+	    public EvaluatePureFunctionWithConstantCall(LinkerUtils linkerUtils,
+            AnalyzeFunctionPurity analyzeFunctionPurity)
+	    {
+	        _linkerUtils = linkerUtils;
+	        _analyzeFunctionPurity = analyzeFunctionPurity;
+	    }
+
+	    public override bool CheckPreconditions(CilMethodInterpreter midRepresentation, ClosureEntities closure)
         {
             var operations = midRepresentation.MidRepresentation.UseDef;
 
@@ -54,11 +64,11 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
             }
         }
 
-        public static CallMethodStatic ComputeAndEvaluatePurityOfCall(LocalOperation operation)
+        public CallMethodStatic ComputeAndEvaluatePurityOfCall(LocalOperation operation)
         {
             var operationData = (CallMethodStatic) operation;
-            var methodInterpreter = operationData.Info.GetInterpreter(Closure);
-            if (AnalyzeFunctionPurity.ReadPurity(methodInterpreter as CilMethodInterpreter))
+            var methodInterpreter = _linkerUtils.GetInterpreter(operationData.Info, Closure);
+            if (_analyzeFunctionPurity.ReadPurity(methodInterpreter as CilMethodInterpreter))
             {
                 operationData.Interpreter.AnalyzeProperties.IsPure = true;
             }
@@ -73,7 +83,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
                     operationData.Interpreter.AnalyzeProperties.IsPure = false;
                     return operationData;
                 }
-                var computeIsPure = AnalyzeFunctionPurity.ComputeFunctionPurity(methodInterpreter as CilMethodInterpreter);
+                var computeIsPure = _analyzeFunctionPurity.ComputeFunctionPurity(methodInterpreter as CilMethodInterpreter);
                 if (computeIsPure)
                     operationData.Interpreter.AnalyzeProperties.IsPure = true;
             }

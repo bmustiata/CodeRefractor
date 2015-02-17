@@ -1,6 +1,6 @@
 ﻿#region Usings
 
-using CodeRefractor.Backend.Linker;
+using CodeRefractor.CodeWriter.Linker;
 using CodeRefractor.MiddleEnd.Interpreters.Cil;
 using CodeRefractor.MiddleEnd.Optimizations.Common;
 using CodeRefractor.MiddleEnd.SimpleOperations;
@@ -14,7 +14,14 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 	[Optimization(Category = OptimizationCategories.Analysis)]
     public class AnalyzeFunctionNoStaticSideEffects : ResultingGlobalOptimizationPass
     {
-        public static bool ReadPurity(CilMethodInterpreter intermediateCode)
+	    private readonly LinkerUtils _linkerUtils;
+
+	    public AnalyzeFunctionNoStaticSideEffects(LinkerUtils linkerUtils)
+	    {
+	        _linkerUtils = linkerUtils;
+	    }
+
+	    public bool ReadPurity(CilMethodInterpreter intermediateCode)
         {
             return intermediateCode.AnalyzeProperties.IsReadOnly;
         }
@@ -30,7 +37,7 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
             Result = true;
         }
 
-        public static bool ComputeFunctionProperty(CilMethodInterpreter intermediateCode)
+        public bool ComputeFunctionProperty(CilMethodInterpreter intermediateCode)
         {
             if (intermediateCode == null)
                 return false;
@@ -46,8 +53,9 @@ namespace CodeRefractor.MiddleEnd.Optimizations.Purity
 
                     case OperationKind.Call:
                         var operationData = (CallMethodStatic) localOperation;
-                        var readPurity = LinkerInterpretersTableUtils.ReadNoStaticSideEffects(operationData.Info,
-                            Closure);
+                        var readPurity = _linkerUtils.ReadNoStaticSideEffects(
+                                                operationData.Info,
+                                                Closure);
                         if (!readPurity)
                             return false;
                         break;
