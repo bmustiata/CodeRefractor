@@ -298,6 +298,12 @@ namespace CodeRefractor.FrontEnd
 
                 operationFactory.LoadFieldAddressIntoEvaluationStack(fieldInfo);
                 return true;
+            } if (instruction.OpCode == OpCodes.Ldsflda)
+            {
+                var fieldInfo = (FieldInfo)instruction.Operand;
+
+                operationFactory.LoadStaticFieldAddressIntoEvaluationStack(fieldInfo);
+                return true;
             }
 
             if (instruction.OpCode == OpCodes.Ldelema)

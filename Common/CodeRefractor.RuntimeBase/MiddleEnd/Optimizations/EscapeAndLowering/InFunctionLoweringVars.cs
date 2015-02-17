@@ -45,16 +45,17 @@ namespace CodeRefractor.MiddleEnd.Optimizations.EscapeAndLowering
 
             if (candidateVariables.Count == 0)
                 return false;
+            var result = false;
             foreach (var variable in candidateVariables)
             {
                 var getVariableData = interpreter.AnalyzeProperties.GetVariableData(variable);
                 if (getVariableData != EscapingMode.Unused)
                 {
-                    interpreter.AnalyzeProperties.SetVariableData(variable, EscapingMode.Pointer);
+                    result|=interpreter.AnalyzeProperties.SetVariableData(variable, EscapingMode.Pointer);
                 }
             }
             AllocateVariablesOnStack(localOp, candidateVariables, interpreter);
-            return true;
+            return result;
         }
 
         private bool RemoveAllEscaping(HashSet<LocalVariable> candidateVariables, LocalOperation[] localOp,
@@ -85,22 +86,31 @@ namespace CodeRefractor.MiddleEnd.Optimizations.EscapeAndLowering
             var candidateVariables = new HashSet<LocalVariable>();
             var midRepresentation = interpreter.MidRepresentation;
             var variables = midRepresentation.Vars;
-            var toAdd = variables.LocalVars.Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive);
+            LocalVariable[] toAdd = variables.LocalVars.Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive).ToArray();
             candidateVariables.AddRange(toAdd);
-            toAdd = variables.VirtRegs.Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive);
+            toAdd = variables.VirtRegs.Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive).ToArray();
             candidateVariables.AddRange(toAdd);
-            toAdd = interpreter.AnalyzeProperties.Arguments.Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive);
+            toAdd = interpreter.AnalyzeProperties.Arguments
+                .Where(varId => !varId.ComputedType().GetClrType(closure).IsPrimitive).ToArray();
+            foreach (var argumentVariable in toAdd)
+            {
+                if (argumentVariable.Escaping != EscapingMode.Unused)
+                {
+                    argumentVariable.Escaping = EscapingMode.Pointer;
+                }
+            }
             candidateVariables.AddRange(toAdd);
             return candidateVariables;
         }
 
-        private void AllocateVariablesOnStack(LocalOperation[] localOp, HashSet<LocalVariable> candidateVariables, MethodInterpreter interpreter)
+        private bool AllocateVariablesOnStack(LocalOperation[] localOp, HashSet<LocalVariable> candidateVariables, MethodInterpreter interpreter)
         {
             var newOps = localOp.Where(op =>
                 op.Kind == OperationKind.NewArray
                 || op.Kind == OperationKind.NewObject).ToArray();
             if (newOps.Length == 0)
-                return;
+                return false;
+            var result = false;
             foreach (var op in newOps)
             {
                 var variable = op.GetDefinition();
@@ -108,12 +118,14 @@ namespace CodeRefractor.MiddleEnd.Optimizations.EscapeAndLowering
                     continue;
 
                 if (!candidateVariables.Contains(variable)) continue;
+                result = true;
                 var variableData = interpreter.AnalyzeProperties.GetVariableData(variable);
                 if (variableData != EscapingMode.Stack)
                 {
                     interpreter.AnalyzeProperties.SetVariableData(variable, EscapingMode.Stack);               
                 }
             }
+            return result;
         }
 
         public void RemoveCandidatesIfEscapes(LocalVariable localVariable,
@@ -152,6 +164,8 @@ namespace CodeRefractor.MiddleEnd.Optimizations.EscapeAndLowering
                     HandleRefAssignment(localVariable, candidateVariables, op);
                     break;
                 case OperationKind.FieldRefAssignment:
+                    break;
+                case OperationKind.NewArray:
                     break;
                 default:
                     throw new NotImplementedException();

@@ -68,7 +68,7 @@ namespace CodeRefractor.Backend.ComputeClosure
             if (interpreter.Method.IsAbstract)
                 return false;
             var result = false;
-            var optimizationsList = new List<ResultingOptimizationPass>(optimizationPasses);
+            var optimizationsList = new List<OptimizationPassBase>(optimizationPasses);
             var areOptimizationsAvailable = true;
             while (areOptimizationsAvailable)
             {
@@ -79,7 +79,7 @@ namespace CodeRefractor.Backend.ComputeClosure
                     var optimizationName = optimizationPass.GetType().Name;
                     if (!optimizationPass.CheckPreconditions(interpreter, entities))
                         continue;
-                    areOptimizationsAvailable = optimizationPass.Optimize(interpreter);
+                    areOptimizationsAvailable = optimizationPass.ApplyOptimization(interpreter, entities);
 
                     if (!areOptimizationsAvailable) continue;
                     var useDef = interpreter.MidRepresentation.UseDef;

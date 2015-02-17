@@ -1,6 +1,7 @@
 #region Usings
 
 using System;
+using System.Linq;
 using System.Text;
 using CodeRefractor.Analyze;
 using CodeRefractor.ClosureCompute;
@@ -44,15 +45,18 @@ namespace CodeRefractor.CodeWriter.BasicOperations
                 });
                 if (parameterData != EscapingMode.Unused)
                 {
-                    TypeDescription argumentTypeDescription = 
+                    TypeDescription argumentTypeDescription =
                         UsedTypeList.Set(
                             method.DeclaringType
-                                .GetReversedMappedType(closureEntities) ?? 
-                                method.DeclaringType.GetMappedType(closureEntities), 
+                                .GetReversedMappedType(closureEntities) ??
+                                method.DeclaringType.GetMappedType(closureEntities),
                                 closureEntities);
+
+                    EscapingMode isSmartPtr = interpreter.AnalyzeProperties.Arguments.First(it=>it.Name=="_this").Escaping;
+
                     var thisText = String.Format("{0} _this",
-                            argumentTypeDescription.ClrType.ToCppName(EscapingMode.Pointer));
-                  
+                            argumentTypeDescription.ClrType.ToCppName(isSmartPtr));
+
                     sb.Append(thisText);
                     index++;
                 }

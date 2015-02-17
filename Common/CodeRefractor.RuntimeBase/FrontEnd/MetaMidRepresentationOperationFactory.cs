@@ -737,6 +737,21 @@ namespace CodeRefractor.FrontEnd
             AddOperation(assignment);
         }
 
+        public void LoadStaticFieldAddressIntoEvaluationStack(FieldInfo fieldInfo)
+        {
+            var vreg = SetNewVReg();
+            var clrType = fieldInfo.FieldType;
+            clrType = clrType.MakeByRefType();
+            vreg.FixedType = new TypeDescription(clrType);
+
+            var assignment = new StaticFieldRefAssignment
+            {
+                Left = vreg,
+                Field = fieldInfo
+            };
+            AddOperation(assignment);
+        }
+
         public void LoadField(string fieldName, ClosureEntities closureEntities)
         {
             var firstVar = _evaluator.Pop();
@@ -999,7 +1014,7 @@ namespace CodeRefractor.FrontEnd
 
         public void Throw()
         {
-            var valueToCast = _evaluator.Pop();
+            //var valueToCast = _evaluator.Pop();
 
             //    var result = SetNewVReg();
             //            var fieldName = fieldInfo.Name;
